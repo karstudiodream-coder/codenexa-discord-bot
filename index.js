@@ -7,28 +7,28 @@ import http from 'http';
 import mongoose from 'mongoose';
 import Usuario from './models/Usuario.js';
 
-// 1. MANTENER VIVO EN RENDER
-http.createServer((req, res) => {
-    res.write('Codenexa Bot operativo');
-    res.end();
-}).listen(process.env.PORT || 10000);
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Configuración de Intents (Permisos del bot)
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildMessages,
-        GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.Guilds,               // Para saber en qué servidores está
+        GatewayIntentBits.GuildMembers,        // Para detectar cuando alguien entra/sale (Privilegiado)
+        GatewayIntentBits.GuildMessages,       // Para recibir eventos de mensajes
+        GatewayIntentBits.MessageContent,      // Para leer el contenido de los mensajes (Privilegiado)
+        GatewayIntentBits.GuildVoiceStates     // Para el sistema de niveles/minutos en voz
     ]
 });
 
 client.commands = new Collection();
 
-// 2. FUNCIÓN RECURSIVA PARA CARGAR ARCHIVOS
+// Servidor para Render
+http.createServer((req, res) => {
+    res.write('Codenexa Bot operativo');
+    res.end();
+}).listen(process.env.PORT || 10000);
+
 const getFiles = (dir) => {
     let files = [];
     if (!fs.existsSync(dir)) return files;
@@ -43,29 +43,24 @@ const getFiles = (dir) => {
     return files;
 };
 
-// 3. CARGA DINÁMICA DE MÓDULOS
 async function loadModules() {
-    console.log('--- Cargando Módulos ---');
-    
     const commandsPath = path.join(__dirname, 'commands');
-    const commandFiles = getFiles(commandsPath);
-    for (const filePath of commandFiles) {
-        try {
+    if (fs.existsSync(commandsPath)) {
+        const commandFiles = getFiles(commandsPath);
+        for (const filePath of commandFiles) {
             const fileUrl = pathToFileURL(filePath).href;
             const { default: command } = await import(fileUrl);
             if (command?.data?.name) {
                 client.commands.set(command.data.name, command);
-                console.log(`✅ Comando: ${command.data.name}`);
+                console.log(`Comando cargado: ${command.data.name}`);
             }
-        } catch (err) {
-            console.error(`❌ Error cargando comando en ${filePath}:`, err.message);
         }
     }
 
     const eventsPath = path.join(__dirname, 'events');
-    const eventFiles = getFiles(eventsPath);
-    for (const filePath of eventFiles) {
-        try {
+    if (fs.existsSync(eventsPath)) {
+        const eventFiles = getFiles(eventsPath);
+        for (const filePath of eventFiles) {
             const fileUrl = pathToFileURL(filePath).href;
             const { default: event } = await import(fileUrl);
             if (event?.name) {
@@ -74,15 +69,12 @@ async function loadModules() {
                 } else {
                     client.on(event.name, (...args) => event.execute(...args, client));
                 }
-                console.log(`✅ Evento: ${event.name}`);
+                console.log(`Evento cargado: ${event.name}`);
             }
-        } catch (err) {
-            console.error(`❌ Error cargando evento en ${filePath}:`, err.message);
         }
     }
 }
 
-// 4. LÓGICA DE REINICIO MENSUAL
 async function checkMonthlyReset() {
     try {
         const now = new Date();
@@ -98,40 +90,33 @@ async function checkMonthlyReset() {
             );
             console.log('🌙 Actividad mensual reiniciada');
         }
-    } catch (e) { console.error('Error reset mensual:', e); }
+    } catch (e) { 
+        console.error('Error en el reset mensual:', e); 
+    }
 }
 
-// 5. EVENTO READY (Interno)
 client.once('ready', async () => {
-    console.log('---------------------------------------');
-    console.log(`🚀 BOT ONLINE: ${client.user.tag}`);
-    console.log('---------------------------------------');
+    console.log(`✅ Sesión iniciada como: ${client.user.tag}`);
     await checkMonthlyReset();
 });
 
-// 6. FUNCIÓN PRINCIPAL CON DIAGNÓSTICO
 async function main() {
     try {
-        console.log('Step 1: Conectando a MongoDB...');
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('📡 DB Conectada');
+        console.log('📡 Base de datos conectada');
 
-        console.log('Step 2: Cargando archivos...');
         await loadModules();
 
-        console.log('Step 3: Intentando login en Discord...');
         if (!process.env.TOKEN) {
-            throw new Error('La variable TOKEN no está definida en Render.');
+            throw new Error('No se encontró el TOKEN en las variables de entorno.');
         }
-
+        
         await client.login(process.env.TOKEN);
 
     } catch (error) {
-        console.log('---------------------------------------');
-        console.error('❌ ERROR FATAL AL INICIAR:');
+        console.error('❌ Error fatal al iniciar:');
         console.error(error);
-        console.log('---------------------------------------');
-        process.exit(1); // Forzamos reinicio si hay error crítico
+        process.exit(1);
     }
 }
 
