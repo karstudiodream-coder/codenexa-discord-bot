@@ -9,6 +9,12 @@ config();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const commands = [];
 const foldersPath = join(__dirname, 'commands');
+
+// Usamos el ID que me pasaste antes directamente para evitar errores de ENV
+const CLIENT_ID = "1471568693128331405"; 
+// Usamos TOKEN en lugar de DISCORD_TOKEN para que coincida con Render
+const TOKEN = process.env.TOKEN;
+
 const commandFolders = readdirSync(foldersPath);
 
 for (const folder of commandFolders) {
@@ -19,20 +25,20 @@ for (const folder of commandFolders) {
         const filePath = join(commandsPath, file);
         const { default: command } = await import(`file://${filePath}`);
         
-        if ('data' in command && 'execute' in command) {
+        if (command && 'data' in command && 'execute' in command) {
             commands.push(command.data.toJSON());
         }
     }
 }
 
-const rest = new REST().setToken(process.env.DISCORD_TOKEN);
+const rest = new REST().setToken(TOKEN);
 
 (async () => {
     try {
         console.log(`🚀 Iniciando la actualización de ${commands.length} comandos (/)`);
 
         const data = await rest.put(
-            Routes.applicationCommands(process.env.CLIENT_ID),
+            Routes.applicationCommands(CLIENT_ID),
             { body: commands },
         );
 
