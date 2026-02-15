@@ -1,8 +1,10 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
 
-function revisarMes() {
+export function revisarMes() {
     const dbPath = path.join(process.cwd(), 'database.json');
+    if (!fs.existsSync(dbPath)) return; // Seguridad por si el archivo no existe
+
     let db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
     
     const fechaActual = new Date();
@@ -25,5 +27,3 @@ function revisarMes() {
         fs.writeFileSync(dbPath, JSON.stringify(db, null, 4));
     }
 }
-
-module.exports = { revisarMes };

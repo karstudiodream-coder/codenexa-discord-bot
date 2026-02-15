@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('top')
         .setDescription('Muestra el ranking de los miembros más activos del club'),
@@ -13,7 +13,7 @@ module.exports = {
             return interaction.reply({ content: 'Aún no hay datos registrados.', ephemeral: true });
         }
 
-        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8') || '{}');
         const usuarios = db.usuarios;
 
         if (!usuarios || Object.keys(usuarios).length === 0) {

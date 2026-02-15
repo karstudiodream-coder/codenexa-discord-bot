@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('ranking')
         .setDescription('Muestra el cuadro de honor mensual del club'),
@@ -10,6 +10,12 @@ module.exports = {
         await interaction.deferReply();
 
         const dbPath = path.join(process.cwd(), 'database.json');
+        
+        // Verificación de seguridad por si no hay datos aún
+        if (!fs.existsSync(dbPath)) {
+            return interaction.editReply({ content: 'Aún no hay registros de actividad este mes.' });
+        }
+
         const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
         const usuarios = db.usuarios || {};
 

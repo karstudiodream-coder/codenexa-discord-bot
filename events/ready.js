@@ -1,6 +1,6 @@
-const { REST, Routes } = require('discord.js');
+import { REST, Routes } from 'discord.js';
 
-module.exports = {
+export default {
     name: 'ready',
     once: true,
     async execute(client) {
@@ -16,7 +16,7 @@ module.exports = {
             console.log('Comandos registrados en el servidor 1471508922048188614');
             console.log('Sesion iniciada como ' + client.user.tag);
         } catch (error) {
-            console.error('Error detectado:');
+            console.error('Error detectado al registrar comandos:');
             console.error(error);
         }
     },

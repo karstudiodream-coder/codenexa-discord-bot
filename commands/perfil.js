@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, AttachmentBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('perfil')
         .setDescription('Mira tu actividad y logros en la comunidad'),
@@ -10,11 +10,16 @@ module.exports = {
         await interaction.deferReply();
 
         const dbPath = path.join(process.cwd(), 'database.json');
-        const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-        const usuarioData = db.usuarios?.[interaction.user.id] || { minutos: 0, eventos: 0, insignias: [] };
+        
+        // Verificamos si la base de datos existe para evitar errores
+        let db = { usuarios: {} };
+        if (fs.existsSync(dbPath)) {
+            db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+        }
+
+        const usuarioData = db.usuarios?.[interaction.user.id] || { minutos: 0, eventos: 0 };
 
         const horasTotales = (usuarioData.minutos / 60).toFixed(1);
-        const insignias = usuarioData.insignias.length > 0 ? usuarioData.insignias.join(' ') : 'Explorador Novato 🌱';
 
         let nivelNombre = 'Recién Llegado';
         let proximoNivel = 10;
@@ -36,8 +41,7 @@ module.exports = {
                 { name: '🏆 Rango', value: `\`${nivelNombre}\``, inline: true },
                 { name: '🤝 Eventos', value: `\`${usuarioData.eventos}\``, inline: true },
                 { name: '⏱️ Tiempo Total', value: `\`${horasTotales} horas\``, inline: false },
-                { name: '📊 Progreso de Nivel', value: `${barra} \`${horasTotales}/${proximoNivel}h\``, inline: false },
-                { name: '🏅 Insignias Obtenidas', value: insignias, inline: false }
+                { name: '📊 Progreso de Nivel', value: `${barra} \`${horasTotales}/${proximoNivel}h\``, inline: false }
             )
             .setFooter({ text: 'Tu constancia fortalece nuestra comunidad.' })
             .setTimestamp();

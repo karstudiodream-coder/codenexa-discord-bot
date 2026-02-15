@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, AttachmentBuilder } = require('discord.js');
-const path = require('path');
-const fs = require('fs');
+import { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, AttachmentBuilder } from 'discord.js';
+import path from 'path';
+import fs from 'fs';
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('reglas')
         .setDescription('Publica las normas de la comunidad')

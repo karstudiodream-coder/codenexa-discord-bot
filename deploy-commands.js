@@ -8,8 +8,6 @@ config();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const commands = [];
-
-// Buscamos todos los comandos en las subcarpetas de /commands
 const foldersPath = join(__dirname, 'commands');
 const commandFolders = readdirSync(foldersPath);
 
@@ -27,14 +25,12 @@ for (const folder of commandFolders) {
     }
 }
 
-// Preparamos el servicio REST de Discord
 const rest = new REST().setToken(process.env.DISCORD_TOKEN);
 
 (async () => {
     try {
         console.log(`🚀 Iniciando la actualización de ${commands.length} comandos (/)`);
 
-        // Desplegamos los comandos en la API de Discord
         const data = await rest.put(
             Routes.applicationCommands(process.env.CLIENT_ID),
             { body: commands },

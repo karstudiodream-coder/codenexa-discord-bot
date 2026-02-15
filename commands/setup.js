@@ -1,8 +1,8 @@
-const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
+import { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     data: new SlashCommandBuilder()
         .setName('setup')
         .setDescription('Configuracion del bot')
@@ -35,7 +35,11 @@ module.exports = {
             await interaction.reply({ embeds: [embed] });
         } catch (error) {
             console.error(error);
-            await interaction.reply({ content: 'Hubo un error al guardar los datos' });
+            if (interaction.replied || interaction.deferred) {
+                await interaction.followUp({ content: 'Hubo un error al guardar los datos' });
+            } else {
+                await interaction.reply({ content: 'Hubo un error al guardar los datos' });
+            }
         }
     }
 };
