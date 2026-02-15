@@ -1,0 +1,19 @@
+# Dependencias (No subir, Render las instala solo)
+node_modules/
+package-lock.json
+
+# Archivos Secretos (Tus llaves de Discord y Mongo)
+.env
+
+# Base de datos local (Solo para pruebas en PC)
+database.json
+
+# Archivos de sistema y temporales
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+
+# Carpetas de editores
+.vscode/
+.idea/

@@ -1,0 +1,27 @@
+{
+  "name": "codenexa-discord-bot",
+  "version": "1.0.0",
+  "description": "Bot oficial de Codenexa Lab con sistema de ranking y MongoDB",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "deploy": "node deploy-commands.js"
+  },
+  "keywords": [
+    "codenexa",
+    "bot",
+    "discord",
+    "ranking",
+    "mongodb"
+  ],
+  "author": "Demeira Almonte",
+  "license": "MIT",
+  "dependencies": {
+    "@napi-rs/canvas": "^0.1.92",
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.4.1",
+    "mongoose": "^8.1.0",
+    "node-cron": "^3.0.3"
+  }
+}
