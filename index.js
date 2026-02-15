@@ -10,7 +10,7 @@ import Usuario from './models/Usuario.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. SERVIDOR DE MANTENIMIENTO (Para que Render vea el puerto abierto de inmediato)
+// 1. SERVIDOR DE MANTENIMIENTO
 const port = process.env.PORT || 10000;
 http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
@@ -20,18 +20,23 @@ http.createServer((req, res) => {
     console.log(`🚀 Sistema: Servidor de enlace activo en puerto ${port}`);
 });
 
-// 2. CONFIGURACIÓN DEL CLIENTE
+// 2. CONFIGURACIÓN DEL CLIENTE (Intents revisados)
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMembers,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildVoiceStates
+        GatewayIntentBits.GuildVoiceStates,
+        GatewayIntentBits.GuildPresences // Añadido para mayor estabilidad con 2FA
     ]
 });
 
 client.commands = new Collection();
+
+// Captura de errores globales para que Render no se quede "colgado"
+client.on('error', (err) => console.error('❌ Error de Discord Client:', err));
+process.on('unhandledRejection', (err) => console.error('❌ Error no manejado:', err));
 
 const getFiles = (dir) => {
     let files = [];
@@ -127,12 +132,15 @@ async function main() {
             throw new Error('TOKEN no configurado en el entorno.');
         }
         
+        // Limpiamos espacios en blanco del token por si acaso
+        const token = process.env.TOKEN.trim();
+        
         console.log('🌐 Conectando con Discord...');
-        await client.login(process.env.TOKEN);
+        await client.login(token);
 
     } catch (error) {
-        console.error('❌ Error fatal:');
-        console.error(error.message);
+        console.error('❌ Error fatal en el arranque:');
+        console.error(error.stack); // Usamos .stack para ver la línea exacta del error
         process.exit(1);
     }
 }
