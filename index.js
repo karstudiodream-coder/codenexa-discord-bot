@@ -10,24 +10,28 @@ import Usuario from './models/Usuario.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configuración de Intents (Permisos del bot)
+// 1. SERVIDOR DE MANTENIMIENTO (Para que Render vea el puerto abierto de inmediato)
+const port = process.env.PORT || 10000;
+http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.write('Codenexa Bot operativo');
+    res.end();
+}).listen(port, '0.0.0.0', () => {
+    console.log(`🚀 Sistema: Servidor de enlace activo en puerto ${port}`);
+});
+
+// 2. CONFIGURACIÓN DEL CLIENTE
 const client = new Client({
     intents: [
-        GatewayIntentBits.Guilds,               // Para saber en qué servidores está
-        GatewayIntentBits.GuildMembers,        // Para detectar cuando alguien entra/sale (Privilegiado)
-        GatewayIntentBits.GuildMessages,       // Para recibir eventos de mensajes
-        GatewayIntentBits.MessageContent,      // Para leer el contenido de los mensajes (Privilegiado)
-        GatewayIntentBits.GuildVoiceStates     // Para el sistema de niveles/minutos en voz
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildVoiceStates
     ]
 });
 
 client.commands = new Collection();
-
-// Servidor para Render
-http.createServer((req, res) => {
-    res.write('Codenexa Bot operativo');
-    res.end();
-}).listen(process.env.PORT || 10000);
 
 const getFiles = (dir) => {
     let files = [];
@@ -48,11 +52,15 @@ async function loadModules() {
     if (fs.existsSync(commandsPath)) {
         const commandFiles = getFiles(commandsPath);
         for (const filePath of commandFiles) {
-            const fileUrl = pathToFileURL(filePath).href;
-            const { default: command } = await import(fileUrl);
-            if (command?.data?.name) {
-                client.commands.set(command.data.name, command);
-                console.log(`Comando cargado: ${command.data.name}`);
+            try {
+                const fileUrl = pathToFileURL(filePath).href;
+                const { default: command } = await import(fileUrl);
+                if (command?.data?.name) {
+                    client.commands.set(command.data.name, command);
+                    console.log(`Comando cargado: ${command.data.name}`);
+                }
+            } catch (err) {
+                console.error(`Error en comando ${filePath}:`, err.message);
             }
         }
     }
@@ -61,15 +69,19 @@ async function loadModules() {
     if (fs.existsSync(eventsPath)) {
         const eventFiles = getFiles(eventsPath);
         for (const filePath of eventFiles) {
-            const fileUrl = pathToFileURL(filePath).href;
-            const { default: event } = await import(fileUrl);
-            if (event?.name) {
-                if (event.once) {
-                    client.once(event.name, (...args) => event.execute(...args, client));
-                } else {
-                    client.on(event.name, (...args) => event.execute(...args, client));
+            try {
+                const fileUrl = pathToFileURL(filePath).href;
+                const { default: event } = await import(fileUrl);
+                if (event?.name) {
+                    if (event.once) {
+                        client.once(event.name, (...args) => event.execute(...args, client));
+                    } else {
+                        client.on(event.name, (...args) => event.execute(...args, client));
+                    }
+                    console.log(`Evento cargado: ${event.name}`);
                 }
-                console.log(`Evento cargado: ${event.name}`);
+            } catch (err) {
+                console.error(`Error en evento ${filePath}:`, err.message);
             }
         }
     }
@@ -96,26 +108,31 @@ async function checkMonthlyReset() {
 }
 
 client.once('ready', async () => {
+    console.log('---------------------------------------');
     console.log(`✅ Sesión iniciada como: ${client.user.tag}`);
+    console.log('---------------------------------------');
     await checkMonthlyReset();
 });
 
+// 3. INICIO DE LA APLICACIÓN
 async function main() {
     try {
+        console.log('📡 Conectando a MongoDB...');
         await mongoose.connect(process.env.MONGO_URI);
-        console.log('📡 Base de datos conectada');
+        console.log('✅ Base de datos lista');
 
         await loadModules();
 
         if (!process.env.TOKEN) {
-            throw new Error('No se encontró el TOKEN en las variables de entorno.');
+            throw new Error('TOKEN no configurado en el entorno.');
         }
         
+        console.log('🌐 Conectando con Discord...');
         await client.login(process.env.TOKEN);
 
     } catch (error) {
-        console.error('❌ Error fatal al iniciar:');
-        console.error(error);
+        console.error('❌ Error fatal:');
+        console.error(error.message);
         process.exit(1);
     }
 }
