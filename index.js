@@ -2,16 +2,16 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, Collection } from 'discord.js';
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import http from 'http';
 import mongoose from 'mongoose';
 import Usuario from './models/Usuario.js';
 
-// Servidor para mantener vivo el bot en Render
+// 1. MANTENER VIVO EN RENDER
 http.createServer((req, res) => {
-    res.write('Codenexa Bot está operando en el Nexo');
+    res.write('Codenexa Bot operativo');
     res.end();
-}).listen(process.env.PORT || 8080);
+}).listen(process.env.PORT || 10000);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,86 +26,93 @@ const client = new Client({
     ]
 });
 
-// Conexión a MongoDB
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('Base de datos conectada en la nube'))
-    .catch(err => console.error('Error al conectar MongoDB:', err));
-
 client.commands = new Collection();
 
-// Carga de Comandos
-const commandsPath = path.join(__dirname, 'commands');
-if (fs.existsSync(commandsPath)) {
-    const commandFolders = fs.readdirSync(commandsPath);
-    for (const folder of commandFolders) {
-        const folderPath = path.join(commandsPath, folder);
-        if (fs.lstatSync(folderPath).isDirectory()) {
-            const commandFiles = fs.readdirSync(folderPath).filter(file => file.endsWith('.js'));
-            for (const file of commandFiles) {
-                const filePath = `file://${path.join(folderPath, file)}`;
-                const { default: command } = await import(filePath);
-                if (command?.data && command?.execute) {
-                    client.commands.set(command.data.name, command);
+// 2. FUNCIÓN RECURSIVA PARA CARGAR ARCHIVOS (Busca en todas las subcarpetas)
+const getFiles = (dir) => {
+    let files = [];
+    const items = fs.readdirSync(dir, { withFileTypes: true });
+    for (const item of items) {
+        if (item.isDirectory()) {
+            files = [...files, ...getFiles(path.join(dir, item.name))];
+        } else if (item.name.endsWith('.js')) {
+            files.push(path.join(dir, item.name));
+        }
+    }
+    return files;
+};
+
+// 3. CARGA DINÁMICA DE COMANDOS Y EVENTOS
+async function loadModules() {
+    // Cargar Comandos
+    const commandsPath = path.join(__dirname, 'commands');
+    if (fs.existsSync(commandsPath)) {
+        const commandFiles = getFiles(commandsPath);
+        for (const filePath of commandFiles) {
+            const fileUrl = pathToFileURL(filePath).href;
+            const { default: command } = await import(fileUrl);
+            if (command?.data?.name) {
+                client.commands.set(command.data.name, command);
+                console.log(`Command Loaded: ${command.data.name}`);
+            }
+        }
+    }
+
+    // Cargar Eventos
+    const eventsPath = path.join(__dirname, 'events');
+    if (fs.existsSync(eventsPath)) {
+        const eventFiles = getFiles(eventsPath);
+        for (const filePath of eventFiles) {
+            const fileUrl = pathToFileURL(filePath).href;
+            const { default: event } = await import(fileUrl);
+            if (event?.name) {
+                if (event.once) {
+                    client.once(event.name, (...args) => event.execute(...args, client));
+                } else {
+                    client.on(event.name, (...args) => event.execute(...args, client));
                 }
+                console.log(`Event Loaded: ${event.name}`);
             }
         }
     }
 }
 
-// Carga de Eventos
-const eventsPath = path.join(__dirname, 'events');
-if (fs.existsSync(eventsPath)) {
-    const eventFiles = fs.readdirSync(eventsPath).filter(file => file.endsWith('.js'));
-    for (const file of eventFiles) {
-        const filePath = `file://${path.join(eventsPath, file)}`;
-        const { default: event } = await import(filePath);
-        if (event.once) {
-            client.once(event.name, (...args) => event.execute(...args, client));
-        } else {
-            client.on(event.name, (...args) => event.execute(...args, client));
-        }
-    }
-}
-
-// Lógica de reinicio mensual corregida
+// 4. LÓGICA DE REINICIO MENSUAL
 async function checkMonthlyReset() {
     try {
         const now = new Date();
         const currentMonthLabel = `${now.getMonth() + 1}-${now.getFullYear()}`;
-        
-        // Buscamos un documento de control para no reiniciar cada vez que el bot prenda
-        // Si no existe, lo creamos. Esto evita que los minutos se borren accidentalmente.
         let config = await mongoose.connection.db.collection('config').findOne({ name: 'monthly_reset' });
 
         if (!config || config.lastReset !== currentMonthLabel) {
-            console.log(`Iniciando nuevo ciclo mensual: ${currentMonthLabel}`);
-            
-            // Ponemos a 0 solo los minutos del mes
             await Usuario.updateMany({}, { $set: { minutos_mes: 0 } });
-
-            // Actualizamos la fecha del último reinicio en la DB
             await mongoose.connection.db.collection('config').updateOne(
                 { name: 'monthly_reset' },
                 { $set: { lastReset: currentMonthLabel } },
                 { upsert: true }
             );
-
-            console.log('Actividad mensual reiniciada correctamente.');
-        } else {
-            console.log(`Ciclo mensual verificado: ${currentMonthLabel} (Ya reiniciado)`);
+            console.log('🌙 Actividad mensual reiniciada');
         }
-    } catch (error) {
-        console.error('Error en el reinicio mensual:', error);
-    }
+    } catch (e) { console.error('Error reset:', e); }
 }
 
-client.once('ready', () => {
-    checkMonthlyReset();
-    console.log(`Conectado como: ${client.user.tag}`);
+// 5. INICIO
+client.once('ready', async () => {
+    console.log(`✅ Conectado como: ${client.user.tag}`);
+    await checkMonthlyReset();
 });
 
-process.on('unhandledRejection', error => {
-    console.error('Error no controlado:', error);
-});
+async function main() {
+    // Conectar DB
+    await mongoose.connect(process.env.MONGO_URI)
+        .then(() => console.log('📡 DB Conectada'))
+        .catch(err => console.error('DB Error:', err));
 
-client.login(process.env.TOKEN);
+    // Cargar módulos
+    await loadModules();
+
+    // Login
+    await client.login(process.env.TOKEN);
+}
+
+main().catch(console.error);
