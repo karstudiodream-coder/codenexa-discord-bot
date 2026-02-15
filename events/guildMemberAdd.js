@@ -1,9 +1,9 @@
-const { AttachmentBuilder, EmbedBuilder } = require('discord.js');
-const { createCanvas, loadImage } = require('@napi-rs/canvas');
-const fs = require('fs');
-const path = require('path');
+import { AttachmentBuilder, EmbedBuilder } from 'discord.js';
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+import fs from 'fs';
+import path from 'path';
 
-module.exports = {
+export default {
     name: 'guildMemberAdd',
     async execute(member) {
         const dbPath = path.join(process.cwd(), 'database.json');
@@ -13,9 +13,11 @@ module.exports = {
         const config = db[member.guild.id];
         if (!config) return;
 
+        // Auto-rol
         const role = member.guild.roles.cache.get(config.autoRoleId);
         if (role) await member.roles.add(role).catch(() => {});
 
+        // Creación del Canvas
         const canvas = createCanvas(1000, 500);
         const ctx = canvas.getContext('2d');
 
@@ -41,6 +43,7 @@ module.exports = {
         ctx.strokeStyle = '#ffffff';
         ctx.stroke();
         ctx.clip();
+        
         const avatar = await loadImage(member.user.displayAvatarURL({ extension: 'png', size: 512 }));
         ctx.drawImage(avatar, 90, 110, 280, 280);
         ctx.restore();
