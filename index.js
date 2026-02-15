@@ -28,9 +28,10 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// 2. FUNCIÓN RECURSIVA PARA CARGAR ARCHIVOS (Busca en todas las subcarpetas)
+// 2. FUNCIÓN RECURSIVA PARA CARGAR ARCHIVOS
 const getFiles = (dir) => {
     let files = [];
+    if (!fs.existsSync(dir)) return files;
     const items = fs.readdirSync(dir, { withFileTypes: true });
     for (const item of items) {
         if (item.isDirectory()) {
@@ -42,27 +43,29 @@ const getFiles = (dir) => {
     return files;
 };
 
-// 3. CARGA DINÁMICA DE COMANDOS Y EVENTOS
+// 3. CARGA DINÁMICA DE MÓDULOS
 async function loadModules() {
-    // Cargar Comandos
+    console.log('--- Cargando Módulos ---');
+    
     const commandsPath = path.join(__dirname, 'commands');
-    if (fs.existsSync(commandsPath)) {
-        const commandFiles = getFiles(commandsPath);
-        for (const filePath of commandFiles) {
+    const commandFiles = getFiles(commandsPath);
+    for (const filePath of commandFiles) {
+        try {
             const fileUrl = pathToFileURL(filePath).href;
             const { default: command } = await import(fileUrl);
             if (command?.data?.name) {
                 client.commands.set(command.data.name, command);
-                console.log(`Command Loaded: ${command.data.name}`);
+                console.log(`✅ Comando: ${command.data.name}`);
             }
+        } catch (err) {
+            console.error(`❌ Error cargando comando en ${filePath}:`, err.message);
         }
     }
 
-    // Cargar Eventos
     const eventsPath = path.join(__dirname, 'events');
-    if (fs.existsSync(eventsPath)) {
-        const eventFiles = getFiles(eventsPath);
-        for (const filePath of eventFiles) {
+    const eventFiles = getFiles(eventsPath);
+    for (const filePath of eventFiles) {
+        try {
             const fileUrl = pathToFileURL(filePath).href;
             const { default: event } = await import(fileUrl);
             if (event?.name) {
@@ -71,8 +74,10 @@ async function loadModules() {
                 } else {
                     client.on(event.name, (...args) => event.execute(...args, client));
                 }
-                console.log(`Event Loaded: ${event.name}`);
+                console.log(`✅ Evento: ${event.name}`);
             }
+        } catch (err) {
+            console.error(`❌ Error cargando evento en ${filePath}:`, err.message);
         }
     }
 }
@@ -93,26 +98,41 @@ async function checkMonthlyReset() {
             );
             console.log('🌙 Actividad mensual reiniciada');
         }
-    } catch (e) { console.error('Error reset:', e); }
+    } catch (e) { console.error('Error reset mensual:', e); }
 }
 
-// 5. INICIO
+// 5. EVENTO READY (Interno)
 client.once('ready', async () => {
-    console.log(`✅ Conectado como: ${client.user.tag}`);
+    console.log('---------------------------------------');
+    console.log(`🚀 BOT ONLINE: ${client.user.tag}`);
+    console.log('---------------------------------------');
     await checkMonthlyReset();
 });
 
+// 6. FUNCIÓN PRINCIPAL CON DIAGNÓSTICO
 async function main() {
-    // Conectar DB
-    await mongoose.connect(process.env.MONGO_URI)
-        .then(() => console.log('📡 DB Conectada'))
-        .catch(err => console.error('DB Error:', err));
+    try {
+        console.log('Step 1: Conectando a MongoDB...');
+        await mongoose.connect(process.env.MONGO_URI);
+        console.log('📡 DB Conectada');
 
-    // Cargar módulos
-    await loadModules();
+        console.log('Step 2: Cargando archivos...');
+        await loadModules();
 
-    // Login
-    await client.login(process.env.TOKEN);
+        console.log('Step 3: Intentando login en Discord...');
+        if (!process.env.TOKEN) {
+            throw new Error('La variable TOKEN no está definida en Render.');
+        }
+
+        await client.login(process.env.TOKEN);
+
+    } catch (error) {
+        console.log('---------------------------------------');
+        console.error('❌ ERROR FATAL AL INICIAR:');
+        console.error(error);
+        console.log('---------------------------------------');
+        process.exit(1); // Forzamos reinicio si hay error crítico
+    }
 }
 
-main().catch(console.error);
+main();
